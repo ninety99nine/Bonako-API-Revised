@@ -3,23 +3,29 @@
 namespace App\Repositories;
 
 use Exception;
+use Carbon\Carbon;
 use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Database\Eloquent\Model;
 use App\Exceptions\InvalidPerPageException;
 use App\Services\Sorting\RepositorySorting;
 use App\Services\Filtering\RepositoryFilter;
 use App\Exceptions\InvalidPaginateException;
+use App\Exceptions\DeleteConfirmationCodeInvalid;
 use App\Exceptions\RepositoryQueryFailedException;
 use App\Exceptions\RepositoryModelNotFoundException;
-use Illuminate\Database\Eloquent\Model;
+use Illuminate\Http\Request;
 
 abstract class BaseRepository
 {
     protected $model;
     protected $formRequest;
     protected $paginate = true;
-    protected $transform = false;
+    protected $transform = true;
+    protected $collection = null;
     protected $createIgnoreFields = [];
     protected $updateIgnoreFields = [];
+    protected $requiresConfirmationBeforeDelete = false;
 
     //  Limit the total results to 15 items by default
     protected $perPage = 15;
@@ -59,32 +65,50 @@ abstract class BaseRepository
      */
     protected $resourceCollectionClass;
 
-    public function __construct() {
-        /**
-         *  First thing is first, we need to set the Eloquent Model Instance of
-         *  the target model class so that we can use the repository methods
-         */
+    /**
+     *  First thing is first, we need to set the Eloquent Model Instance of
+     *  the target model class so that we can use the repository methods
+     */
+    public function __construct()
+    {
         $this->setModel();
-
     }
 
-    private function setModel() {
+    /**
+     *  Set the model by resolving the provided Eloquent
+     *  class name from the service container e.g
+     *
+     *  $this->model = resolve(App\Models\Store)
+     *
+     *  This means that our property "$this->model" is
+     *  now an Eloquent Model Instance of Store.
+     *
+     *  Sometimes we can just pass our own specific model
+     *  instance by passing it as a parameter e.g passing
+     *  a "Store" model with id "1"
+     *
+     *  e.g $model = Store::find(1)
+     *
+     *  Or we can pass a model Eloquent Builder
+     *
+     *  e.g $model = User::find(1)->stores()
+     *
+     *  This is helpful to set an Eloquent Builder instance
+     *  then chain the get() method to pull the query results.
+     */
+    public function setModel($model = null) {
 
-        //  If we do not have a model set
-        if( !$this->model ){
+        if( ($model !== null) || ($this->model === null) ) {
 
-            /**
-             *  Set the model by resolving the provided Eloquent
-             *  class name from the service container e.g
-             *
-             *  $this->model = resolve(App\Models\Car)
-             *
-             *  This means that our property "$this->model" is
-             *  now an Eloquent Model Instance of Car.
-             */
-            $this->model = resolve($this->getModelClass());
+            $this->model = $model ? $model : resolve($this->getModelClass());
 
         }
+
+        /**
+         *  Return the Repository Class instance. This is so that we can chain other
+         *  methods if necessary
+         */
+        return $this;
     }
 
     private function getModelClass() {
@@ -97,17 +121,17 @@ abstract class BaseRepository
     private function getProvidedModelClass() {
         /**
          *  Get the sub-class Eloquent Model class name, for instance,
-         *  $this->resourceClass = Car::class"
+         *  $this->resourceClass = Store::class"
          */
         return $this->modelClass;
     }
 
     private function getFallbackModelClass() {
         /**
-         *  If the sub-class name is "CarRepository", then replace the
+         *  If the sub-class name is "StoreRepository", then replace the
          *  word "Repository" with nothing and append the class path.
          *
-         *  Return a fully qualified class path e.g App\Models\Car
+         *  Return a fully qualified class path e.g App\Models\Store
          */
         return 'App\Models\\' . Str::replace('Repository', '', class_basename($this));
     }
@@ -122,17 +146,17 @@ abstract class BaseRepository
     private function getProvidedResourceClass() {
         /**
          *  Get the sub-class Resource class name, for instance,
-         *  $this->resourceClass = Car::class"
+         *  $this->resourceClass = Store::class"
          */
         return $this->resourceClass;
     }
 
     private function getFallbackResourceClass() {
         /**
-         *  If the sub-class name is "CarRepository", then replace the
+         *  If the sub-class name is "StoreRepository", then replace the
          *  word "Repository" with "Resource" and append the class path.
          *
-         *  Return a fully qualified class path e.g App\Http\Resources\CarResource
+         *  Return a fully qualified class path e.g App\Http\Resources\StoreResource
          */
         return '\App\Http\Resources\\' . Str::replace('Repository', 'Resource', class_basename($this));
     }
@@ -149,17 +173,17 @@ abstract class BaseRepository
     private function getProvidedResourceCollectionClass() {
         /**
          *  Get the sub-class Resource class name, for instance,
-         *  $this->resourceCollectionClass = Car::class"
+         *  $this->resourceCollectionClass = Store::class"
          */
         return $this->resourceCollectionClass;
     }
 
     private function getFallbackResourceCollectionClass() {
         /**
-         *  If the sub-class name is "CarRepository", then replace the
+         *  If the sub-class name is "StoreRepository", then replace the
          *  word "Repository" with "Resources" and append the class path.
          *
-         *  Return a fully qualified class path e.g App\Http\Resources\CarResources
+         *  Return a fully qualified class path e.g App\Http\Resources\StoreResources
          */
         return '\App\Http\Resources\\' . Str::replace('Repository', 'Resources', class_basename($this));
     }
@@ -174,6 +198,10 @@ abstract class BaseRepository
         return $this->getProvidedModelName();
     }
 
+    public function getModelNameInLowercase() {
+        return strtolower($this->getModelName());
+    }
+
     private function getProvidedModelName() {
         /**
          *  Get the provided model name e.g user, store, order
@@ -184,10 +212,10 @@ abstract class BaseRepository
 
     private function getFallbackModelName() {
         /**
-         *  If the sub-class name is "CarRepository", then remove the
+         *  If the sub-class name is "StoreRepository", then remove the
          *  word "Repository" from the class base name and assume
          *  the remaining characters to be the name of the
-         *  Eloquent Model Name to target i.e "Car"
+         *  Eloquent Model Name to target i.e "Store"
          */
         return Str::of(Str::replace('Repository', '', class_basename($this)))->trim();
     }
@@ -317,6 +345,17 @@ abstract class BaseRepository
     }
 
     /**
+     *  Retrieve a fresh instance of the model.
+     *  Return this instance.
+     */
+    public function refreshModel() {
+
+        $this->setModel( $this->model->fresh() );
+        return $this;
+
+    }
+
+    /**
      *  Get repository model instances.
      */
     public function get() {
@@ -345,31 +384,23 @@ abstract class BaseRepository
             if( $this->paginate ) {
 
                 //  Initialise a paginated collection
-                $output = $this->model->paginate($this->perPage);
+                $this->collection = $this->model->paginate($this->perPage);
 
             }else{
 
                 //  Initialise a collection
-                $output = $this->model->take($this->perPage)->get();
+                $this->collection = $this->model->take($this->perPage)->get();
 
             }
 
-            //  If we want to transform the collection
-            if( $this->transform ) {
-
-                //  Initialise a transformed collection
-                $output = $this->transformCollection( $output );
-
-            }
-
-            return $output;
+            return $this;
 
         //  If we failed to perform the query
         } catch (\Illuminate\Database\QueryException $e){
 
             report($e);
 
-            throw new RepositoryQueryFailedException('Could not get the '.strtolower($this->getModelName()).' records because the Database Query failed. Make sure that your filters and sorting functionality is correctly set especially when targeting nested relationships');
+            throw new RepositoryQueryFailedException('Could not get the '.$this->getModelNameInLowercase().' records because the Database Query failed. Make sure that your filters and sorting functionality is correctly set especially when targeting nested relationships');
 
         }
 
@@ -379,10 +410,23 @@ abstract class BaseRepository
      *  Create new repository model instance.
      */
     public function create($data = []) {
-        try{
+        try {
+
+            if($data instanceof Request) {
+
+                $data = $data->all();
+
+            }elseif($data instanceof Model) {
+
+                $fillables = $data->getFillable();
+                $data = $data->getAttributes();
+
+            }
+
+            $fillables = isset($fillables) ? $fillables : $this->model->getFillable();
 
             //  Get the permitted fields for creating a model
-            $data = collect($data)->except($this->createIgnoreFields)->all();
+            $data = collect($data)->only($fillables)->except($this->createIgnoreFields)->all();
 
             //  If we have data
             if( !empty($data) ){
@@ -392,7 +436,7 @@ abstract class BaseRepository
 
             }else{
 
-                throw new Exception('Could not create '.strtolower($this->getModelName()).' because no data was provided.');
+                throw new Exception('Could not create '.$this->getModelNameInLowercase().' because no data was provided.');
 
             }
 
@@ -412,17 +456,30 @@ abstract class BaseRepository
     /**
      *  Update existing repository model instance.
      */
-    public function update($id, $data = []) {
+    public function update($data = []) {
         try {
 
-            //  Get the permitted fields for updating a model
-            $data = collect($data)->except($this->updateIgnoreFields)->all();
+            if($data instanceof Request) {
+
+                $data = $data->all();
+
+            }elseif($data instanceof Model) {
+
+                $fillables = $data->getFillable();
+                $data = $data->getAttributes();
+
+            }
+
+            $fillables = isset($fillables) ? $fillables : $this->model->getFillable();
+
+            //  Get the permitted fields for creating a model
+            $data = collect($data)->only($fillables)->except($this->createIgnoreFields)->all();
 
             //  If we have data
             if( !empty($data) ){
 
                 //  Update repository model
-                $updated = $this->findModel($id)->update($data);
+                $updated = $this->model->update($data);
 
                 //  If we updated this repository model
                 if( $updated ){
@@ -440,13 +497,13 @@ abstract class BaseRepository
 
             }else{
 
-                throw new Exception('Could not update '.strtolower($this->getModelName()).' because no data was provided.');
+                throw new Exception('Could not update '.$this->getModelNameInLowercase().' because no data was provided.');
 
             }
 
         } catch (RepositoryModelNotFoundException $e) {
 
-            throw new RepositoryModelNotFoundException('Could not update '.strtolower($this->getModelName()).' because it does not exist.');
+            throw new RepositoryModelNotFoundException('Could not update '.$this->getModelNameInLowercase().' because it does not exist.');
 
         } catch (\Throwable $th) {
 
@@ -458,14 +515,25 @@ abstract class BaseRepository
     /**
      *  Delete existing repository model instance.
      */
-    public function delete($id) {
+    public function delete() {
         try {
 
-            return $this->findModel($id)->delete();
+            //  If this requires confirmation before delete
+            if( $this->requiresConfirmationBeforeDelete ){
+
+                //  Confirm that the user can delete this model
+                $this->confirmDeleteConfirmationCode();
+
+                //  Remove the code
+                $this->removeDeleteConfirmationCode();
+
+            }
+
+            return $this->model->delete();
 
         } catch (RepositoryModelNotFoundException $e) {
 
-            throw new RepositoryModelNotFoundException('Could not delete '.strtolower($this->getModelName()).' because it does not exist.');
+            throw new RepositoryModelNotFoundException('Could not delete '.$this->getModelNameInLowercase().' because it does not exist.');
 
         } catch (\Throwable $th) {
 
@@ -475,42 +543,122 @@ abstract class BaseRepository
     }
 
     /**
+     *  Generate the code required to delete important assets
+     */
+    public function generateDeleteConfirmationCode()
+    {
+        //  Generate random 6 digit number
+        $code = $this->generateRandomSixDigitCode();
+
+        //  Cache the new code for exactly 1 day
+        Cache::add($this->getDeleteConfirmationCodeCacheName(), $code, now()->addDay());
+
+        return [
+            'message' => 'Enter the confirmation code "'.$code.'" to confirm deleting this ' . $this->getModelNameInLowercase(),
+            'code' => $code
+        ];
+    }
+
+    /**
+     *  Confirm the code required to delete important assets
+     */
+    public function confirmDeleteConfirmationCode()
+    {
+        $code = request()->input('code');
+
+        if( Cache::has($this->getDeleteConfirmationCodeCacheName()) ){
+
+            if( $code == Cache::get($this->getDeleteConfirmationCodeCacheName()) ) {
+
+                return true;
+
+            }else{
+
+                throw new DeleteConfirmationCodeInvalid('The confirmation code "'.$code.'" is invalid.');
+
+            }
+
+        }else{
+
+            throw new DeleteConfirmationCodeInvalid('The confirmation code "'.$code.'" has expired.');
+
+        }
+    }
+
+    /**
+     *  Remove the code required to delete important assets
+     */
+    public function removeDeleteConfirmationCode()
+    {
+        Cache::forget($this->getDeleteConfirmationCodeCacheName());
+    }
+
+    /**
+     *  Generate the code required to delete important assets
+     */
+    public function getDeleteConfirmationCodeCacheName()
+    {
+        /**
+         *  If the $model is a store with id equal to "5", then
+         *  the returned result must be "DELETE_STORE_5_1"
+         *
+         *  If the $model is an order with id equal to "5", then
+         *  the returned result must be "DELETE_ORDER_5_1"
+         */
+        return 'DELETE_'.strtoupper(class_basename($this->model)).'_'.$this->model->id.'_'.auth()->user()->id;
+    }
+
+    /**
+     *  Generate a random 6 digit number
+     */
+    public function generateRandomSixDigitCode()
+    {
+        return rand(100000, 999999);
+    }
+
+    /**
      *  Transform the repository model instance.
      */
     public function transform($additionalParams = []) {
 
-        /**
-         *  The resource parameter must be set to the current model instance
-         *  so that we can transform the model data for external consumption.
-         *
-         *  Additional params can be passed on to the constructor of the
-         *  resource transformer to offer more flexibility
-         *
-         *  e.g
-         *
-         *  $additionalParams = ['viewAsGuest' => true];
-         *
-         *  The "key" of the additional param must match the constructor variable
-         *  name while the value must be the intended value to pass on.
-         *
-         *  e.g Inside a Resource Class we can overide the contructor like so:
-         *
-         *  public function __construct($resource, $viewAsGuest = false){
-         *      ...
-         *  }
-         */
-        $params = array_merge(['resource' => $this->model], $additionalParams);
+        if( !is_null($this->collection) ) {
 
-        return resolve($this->getResourceClass(), $params);
+            /**
+             *  The resource parameter must be set to the current collection instance
+             *  so that we can transform the collection data for external consumption.
+             */
 
-    }
+            $class = $this->getResourceCollectionClass();
+            $params = ['resource' => $this->collection];
 
-    /**
-     *  Transform the repository model collection.
-     */
-    public function transformCollection($collection) {
+        }else{
 
-        return resolve($this->getResourceCollectionClass(), ['resource' => $collection]);
+            /**
+             *  The resource parameter must be set to the current model instance
+             *  so that we can transform the model data for external consumption.
+             *
+             *  Additional params can be passed on to the constructor of the
+             *  resource transformer to offer more flexibility
+             *
+             *  e.g
+             *
+             *  $additionalParams = ['checkingAccountExistence' => true];
+             *
+             *  The "key" of the additional param must match the constructor variable
+             *  name while the value must be the intended value to pass on.
+             *
+             *  e.g Inside a Resource Class we can overide the contructor like so:
+             *
+             *  public function __construct($resource, $checkingAccountExistence = false){
+             *      ...
+             *  }
+             */
+            $class = $this->getResourceClass();
+            $params = array_merge(['resource' => $this->model], $additionalParams);
+
+        }
+
+        return resolve($class, $params);
 
     }
 

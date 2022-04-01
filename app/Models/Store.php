@@ -2,13 +2,13 @@
 
 namespace App\Models;
 
-use App\Models\Traits\StoreTrait;
-use Illuminate\Database\Eloquent\Model;
+use App\Casts\Currency;
+use App\Models\Base\BaseModel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
-class Store extends Model
+class Store extends BaseModel
 {
-    use HasFactory, StoreTrait;
+    use HasFactory;
 
     const CLOSED_ANSWERS = [
         'Yes', 'No', 'Not specified'
@@ -25,14 +25,26 @@ class Store extends Model
         'Other', 'Not specified'
     ];
 
+    const DEFAULT_OFFLINE_MESSAGE = 'We are currently offline';
+
     protected $casts = [
-        'accepted_golden_rules' => 'boolean'
+        'online' => 'boolean',
+        'accepted_golden_rules' => 'boolean',
+    ];
+
+    protected $tranformableCasts = [
+        'currency' => Currency::class
     ];
 
     protected $fillable = [
-        'name', 'call_to_action', 'registered_with_bank', 'banking_with', 'registered_with_cipa', 'registered_with_cipa_as',
-        'company_uin', 'number_of_employees', 'accepted_golden_rules',
+        'name', 'currency', 'registered_with_bank', 'banking_with', 'registered_with_cipa', 'registered_with_cipa_as',
+        'company_uin', 'number_of_employees', 'accepted_golden_rules', 'online', 'offline_message',
+        'user_id'
     ];
+
+    /****************************
+     *  RELATIONSHIPS           *
+     ***************************/
 
     /**
      * Get the Locations owned by the Store

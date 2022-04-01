@@ -30,21 +30,21 @@ class LoginRequest extends FormRequest
         $mobileNumber = request()->input('mobile_number');
         $hasMobileNumber = request()->filled('mobile_number');
 
-        $requestIsNotFromUssdServer = ($ussdService->verifyIfRequestFromUssdServer() == false);
+        $requestIsFromUssdServer = $ussdService->verifyIfRequestFromUssdServer();
         $hasPasswordSetForAccount = $hasMobileNumber ? (User::searchMobileNumber($mobileNumber)->first()->password ?? false) : false;
 
         return [
             'mobile_number' => ['bail', 'required', 'string', 'starts_with:267', 'regex:/^[0-9]+$/', 'size:11', 'exists:users,mobile_number'],
             'password' => array_merge(
                 //  If the request is not from the ussd server then the password is required
-                ['bail', Rule::requiredIf($requestIsNotFromUssdServer), 'string', 'min:6'],
+                ['bail', Rule::requiredIf(!$requestIsFromUssdServer), 'string', 'min:6'],
                 //  If the user provided a mobile number, but does not have a password set for the
                 //  account matching the mobile number, then the password given must be confirmed.
                 ($hasMobileNumber && !$hasPasswordSetForAccount) ? ['confirmed'] : []
             ),
             //  If the user provided a mobile number, but does not have a password set for the
             //  account matching the mobile number, then the verification code is required
-            'verification_code' => ['bail', Rule::requiredIf($requestIsNotFromUssdServer && $hasMobileNumber && !$hasPasswordSetForAccount), 'string', 'size:6', 'regex:/^[0-9]+$/'],
+            'verification_code' => ['bail', Rule::requiredIf(!$requestIsFromUssdServer && !$hasPasswordSetForAccount), 'string', 'size:6', 'regex:/^[0-9]+$/'],
         ];
     }
 

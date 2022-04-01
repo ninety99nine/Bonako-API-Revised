@@ -30,7 +30,9 @@ class StoreSeeder extends Seeder
         $locations = [Location::factory(1)->has(...$orders), 'locations'];
 
         //  Create stores
-        Store::factory(10)->has(...$locations)->create();
+        $stores = Store::factory(10)->has(...$locations)->create();
+
+
 
         $this->enableForeignKeyChecks();
     }

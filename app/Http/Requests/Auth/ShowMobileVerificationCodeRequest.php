@@ -24,8 +24,23 @@ class ShowMobileVerificationCodeRequest extends FormRequest
      */
     public function rules()
     {
+        /**
+         *  Check if this request is being performed by the Super Admin
+         *  on behalf of the user.
+         */
+        $requestBySuperAdmin = request()->routeIs('user.*');
+
         return [
-            'mobile_number' => ['bail', 'required', 'string', 'starts_with:267', 'regex:/^[0-9]+$/', 'size:11']
+            'mobile_number' => array_merge(
+                /**
+                 *  If the request is performed by the Super Admin, then the
+                 *  Super Admin does not require to provide the users mobile
+                 *  number. This works well if the request is performed on
+                 *  an existing user.
+                 */
+                $requestBySuperAdmin ? ['sometimes'] : [],
+                ['bail', 'required', 'string', 'starts_with:267', 'regex:/^[0-9]+$/', 'size:11'],
+            )
         ];
     }
 

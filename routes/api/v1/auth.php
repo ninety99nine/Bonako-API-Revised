@@ -12,8 +12,17 @@ Route::controller(AuthController::class)->prefix('auth')->name('auth')->group(fu
     //  The following routes require an authenticated user
     Route::prefix('user')->name('.user')->group(function(){
 
-        Route::get('/', 'user')->name('.profile');
-        Route::get('/tokens', 'tokens')->name('.tokens');
+        Route::name('.profile')->group(function() {
+
+            Route::get('/', 'showProfile')->name('.show');
+            Route::put('/', 'updateProfile')->name('.update');
+            Route::delete('/', 'deleteProfile')->name('.delete');
+            Route::post('/confirm-delete', 'confirmDeleteProfile')->name('.confirm.delete');
+
+        });
+
+        Route::post('/logout', 'logout')->name('.logout');
+        Route::get('/tokens', 'showProfileTokens')->name('.tokens');
         Route::post('/accept-terms-and-conditions', 'acceptTermsAndConditions')->name('.accept.terms.and.conditions');
 
     });
@@ -32,7 +41,5 @@ Route::controller(AuthController::class)->prefix('auth')->name('auth')->group(fu
         Route::post('/show-mobile-verification-code', 'showMobileVerificationCode')->name('.show.mobile.verification.code')->middleware('request.via.ussd');
 
     });
-
-    Route::post('/logout', 'logout')->name('.logout');
 
 });

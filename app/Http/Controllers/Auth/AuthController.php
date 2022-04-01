@@ -3,78 +3,92 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Repositories\AuthRepository;
-use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
 use App\Http\Requests\Auth\LogoutRequest;
-use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Controllers\Base\BaseController;
 use App\Http\Requests\Auth\ResetPasswordRequest;
 use App\Http\Requests\Auth\AccountExistsRequest;
+use App\Http\Requests\Models\User\CreateUserRequest;
+use App\Http\Requests\Models\User\UpdateUserRequest;
 use App\Http\Requests\Auth\AcceptTermsAndConditionsRequest;
 use App\Http\Requests\Auth\ShowMobileVerificationCodeRequest;
 use App\Http\Requests\Auth\VerifyMobileVerificationCodeRequest;
 use App\Http\Requests\Auth\GenerateMobileVerificationCodeRequest;
 
-class AuthController extends Controller
+class AuthController extends BaseController
 {
-    private $authRepository;
+    /**
+     *  @var AuthRepository
+     */
+    protected $repository;
 
-    public function __construct(AuthRepository $authRepository)
+    public function showProfile()
     {
-        $this->authRepository = $authRepository;
+        return response()->json($this->repository->showProfile(), 200);
     }
 
-    public function user()
+    public function updateProfile(UpdateUserRequest $updateUserRequest)
     {
-        return $this->authRepository->user();
+        return response()->json($this->repository->updateProfile($updateUserRequest)->transform(), 200);
     }
 
-    public function tokens()
+    public function confirmDeleteProfile()
     {
-        return $this->authRepository->tokens();
+        return response($this->repository->confirmDeleteProfile(), 200);
+    }
+
+    public function deleteProfile()
+    {
+        return response($this->repository->deleteProfile(), 204);
+    }
+
+    public function showProfileTokens()
+    {
+        return response($this->repository->showProfileTokens(), 200);
     }
 
     public function acceptTermsAndConditions(AcceptTermsAndConditionsRequest $acceptTermsAndConditionsRequest)
     {
-        return $this->authRepository->acceptTermsAndConditions($acceptTermsAndConditionsRequest);
+        return response($this->repository->acceptTermsAndConditions($acceptTermsAndConditionsRequest), 200);
     }
 
     public function login(LoginRequest $loginRequest)
     {
-        return $this->authRepository->login($loginRequest);
+        return response($this->repository->login($loginRequest), 200);
     }
 
-    public function register(RegisterRequest $registerRequest)
+    public function register(CreateUserRequest $createUserRequest)
     {
-        return response()->json($this->authRepository->register($registerRequest), 201);
+        return response()->json($this->repository->register($createUserRequest), 201);
     }
 
     public function accountExists(AccountExistsRequest $accountExistsRequest)
     {
-        return $this->authRepository->accountExists($accountExistsRequest);
+        return response($this->repository->accountExists($accountExistsRequest), 200);
     }
 
     public function resetPassword(ResetPasswordRequest $resetPasswordRequest)
     {
-        return $this->authRepository->resetPassword($resetPasswordRequest);
+        return response($this->repository->resetPassword($resetPasswordRequest), 200);
     }
 
     public function showMobileVerificationCode(ShowMobileVerificationCodeRequest $showMobileVerificationCodeRequest)
     {
-        return $this->authRepository->showMobileVerificationCode($showMobileVerificationCodeRequest);
+        return response($this->repository->showMobileVerificationCode($showMobileVerificationCodeRequest), 200);
     }
 
     public function verifyMobileVerificationCode(VerifyMobileVerificationCodeRequest $verifyMobileVerificationCodeRequest)
     {
-        return $this->authRepository->verifyMobileVerificationCode($verifyMobileVerificationCodeRequest);
+        return response($this->repository->verifyMobileVerificationCode($verifyMobileVerificationCodeRequest), 200);
     }
 
     public function generateMobileVerificationCode(GenerateMobileVerificationCodeRequest $generateMobileVerificationCodeRequest)
     {
-        return $this->authRepository->generateMobileVerificationCode($generateMobileVerificationCodeRequest);
+        return response($this->repository->generateMobileVerificationCode($generateMobileVerificationCodeRequest), 200);
     }
 
     public function logout(LogoutRequest $logoutRequest)
     {
-        return $this->authRepository->logout($logoutRequest);
+        return response($this->repository->logout($logoutRequest), 200);
     }
 }

@@ -23,7 +23,6 @@ class StoreFactory extends Factory
     {
         return [
             'name' => $this->faker->word,
-            'call_to_action' => $this->faker->randomElement(['Buy', 'Order', 'Pre-order']),
             'registered_with_bank' => $this->faker->randomElement(Store::CLOSED_ANSWERS),
             'banking_with' => $this->faker->randomElement(Store::BANKING_WITH),
             'registered_with_cipa' => $this->faker->randomElement(Store::CLOSED_ANSWERS),
@@ -31,7 +30,7 @@ class StoreFactory extends Factory
             'company_uin' => $this->faker->unique()->numerify('BW###########'),
             'number_of_employees' => $this->faker->numberBetween(1, 50),
             'accepted_golden_rules' => true,
-            'user_id' => 2,
+            'user_id' => 1,
         ];
     }
 }

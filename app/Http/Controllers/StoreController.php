@@ -2,63 +2,59 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Store;
 use Illuminate\Http\Request;
 use App\Repositories\StoreRepository;
-use App\Http\Requests\Models\Store\GetStoreRequest;
+use App\Http\Requests\Models\DeleteRequest;
+use App\Http\Controllers\Base\BaseController;
+use App\Http\Requests\Models\Location\CreateLocationRequest;
 use App\Http\Requests\Models\Store\CreateStoreRequest;
+use App\Http\Requests\Models\Store\UpdateStoreRequest;
 
-class StoreController extends Controller
+class StoreController extends BaseController
 {
-    //  private $storeRepository;
+    /**
+     *  @var StoreRepository
+     */
+    protected $repository;
 
-    public function __construct(/* StoreRepository $storeRepository */) {
-
-        /**
-         *  The issue we are facing is that whenever we instantiate our
-         *  StoreRepository class using dependency injection within
-         *  the constructor, this runs before our middleware rules
-         *  can be applied, therefore the resulting StoreRepository
-         *  instance does not have access to the auth santum user
-         *  since we have not yet run the middleware.
-         *
-         *  For now we are using the dependency injection within each
-         *  method since we are sure that the middleware has executed
-         *
-         *  ------
-         *  Q1: How can we run methods or perform dependency injection
-         *      after running the constructor but before running the
-         *      target method of the contoller. We could inject our
-         *      StoreRepository in this special function.
-         *
-         *  Q2: How can we call a method in the controller constructor
-         *      after the middlewares have fully be resolved.
-         */
-
-        //  $this->storeRepository = $this->storeRepository;
+    public function index(Request $request)
+    {
+        return response($this->repository->get()->transform(), 200);
     }
 
-    public function index(StoreRepository $storeRepository, Request $request)
+    public function create(CreateStoreRequest $request)
     {
-        return $storeRepository->get();
+        return response($this->repository->create($request)->transform(), 201);
     }
 
-    public function create(CreateStoreRequest $request, StoreRepository $storeRepository)
+    public function show(Store $store)
     {
-        return response($storeRepository->create($request->all())->transform(), 201);
+        return response($this->repository->setModel($store)->transform(), 200);
     }
 
-    public function show(GetStoreRequest $request, StoreRepository $storeRepository, $id)
+    public function update(UpdateStoreRequest $request, Store $store)
     {
-        return $storeRepository->findAndTranform($id);
+        return response($this->repository->setModel($store)->update($request)->transform(), 200);
     }
 
-    public function update(CreateStoreRequest $request, StoreRepository $storeRepository, $id)
+    public function confirmDelete(Store $store)
     {
-        return $storeRepository->update($id, $request->all())->transform();
+        return response($this->repository->setModel($store)->generateDeleteConfirmationCode(), 200);
     }
 
-    public function delete(StoreRepository $storeRepository, $id)
+    public function delete(DeleteRequest $request, Store $store)
     {
-        return response($storeRepository->delete($id), 204);
+        return response($this->repository->setModel($store)->delete(), 204);
+    }
+
+    public function showLocations(Store $store)
+    {
+        return response($this->repository->setModel($store)->showLocations(), 200);
+    }
+
+    public function createLocation(CreateLocationRequest $request, Store $store)
+    {
+        return response($this->repository->setModel($store)->createLocation($request)->transform(), 201);
     }
 }

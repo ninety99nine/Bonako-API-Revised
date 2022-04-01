@@ -14,73 +14,41 @@ use Illuminate\Validation\ValidationException;
 use App\Exceptions\ResetPasswordFailedException;
 use App\Exceptions\UpdatePasswordFailedException;
 use App\Exceptions\AcceptingTermsAndConditionsFailedException;
+use App\Exceptions\LogoutOfSuperAdminRestrictedException;
 use App\Exceptions\MobileVerificationCodeGenerationFailedException;
+use Illuminate\Database\Eloquent\Model;
 
 class AuthRepository extends BaseRepository
 {
     protected $modelName = 'user';
     protected $modelClass = User::class;
     protected $resourceClass = UserResource::class;
+    protected $requiresConfirmationBeforeDelete = true;
 
-    /**
-     *  Return the current authenticated user
-     */
-    public function user()
+    public function __construct(Request $request)
     {
-        if( $this->model = request()->user() ) {
+        //  Run the base constructor
+        parent::__construct();
 
-            //  Return the current authenticated user
-            return $this->transform();
+        /**
+         *  If the current authenticated user is performing an action on their own profile
+         */
+        if( $request->routeIs('auth.user.*') ){
 
-        }
-    }
+            //  Set the authenticated user as the model
+            $this->setModel( auth()->user() );
 
-    /**
-     *  Return the current authenticated user tokens
-     */
-    public function tokens()
-    {
-        //  Get the user tokens
-        $tokens = request()->user()->tokens;
+        /**
+         *  If the current authenticated user is performing an action on
+         *  behalf of another user's profile (e.g Super Admin).
+         */
+        }elseif( $request->user ){
 
-        //  Get the user tokens
-        $tranformedTokens = collect($tokens)->map(fn($token) => $token->only(['name', 'last_used_at']))->toArray();
+            //  Get the request user
+            $requestUser = ($user = $request->user) instanceof Model ? $user : parent::findModel($user);
 
-        return [
-            'tokens' => $tranformedTokens
-        ];
-    }
-
-    /**
-     *  Accept the terms and conditions. This will grant
-     *  the user access to consume routes that require
-     *  the T&C's to be accepted first.
-     */
-    public function acceptTermsAndConditions(Request $request)
-    {
-        //  If the user has not accepted the terms and conditions
-        if( request()->user()->accepted_terms_and_conditions == false ) {
-
-            //  Accept the terms and conditions
-            $accepted = request()->user()->update([
-                'accepted_terms_and_conditions' => true
-            ]);
-
-            //  If accepted successfully
-            if( $accepted ){
-
-                return ['message' => 'Terms and conditions accepted successfully'];
-
-            }else{
-
-                //  Throw an Exception - Failed to accept
-                throw new AcceptingTermsAndConditionsFailedException('Failed to accept the terms and conditions');
-            }
-
-        }else{
-
-            //  Throw an Exception - Already accepted
-            throw new AcceptingTermsAndConditionsFailedException('The terms and conditions have already been accepted');
+            //  Set the request user as the model
+            $this->setModel( $requestUser );
 
         }
     }
@@ -92,7 +60,8 @@ class AuthRepository extends BaseRepository
      *  or ...
      *
      *  Set a new password for the existing account and
-     *  return the existing user account and access token
+     *  return the existing user account and access
+     *  token
      */
     public function login(Request $request)
     {
@@ -162,25 +131,152 @@ class AuthRepository extends BaseRepository
         $data = $request->only(['first_name', 'last_name', 'mobile_number', 'password']);
 
         //  Create new account
-        $this->create($data);
+        parent::create($data);
 
         //  Revoke the mobile verification code
         $this->revokeMobileVerificationCode();
 
-        //  Return account and access token
-        return $this->getUserAndAccessToken();
+        //  If this was a new user registration
+        if( request()->routeIs('auth.register') ) {
+
+            //  Return account and access token (Incase of New User)
+            return $this->getUserAndAccessToken();
+
+        }else{
+
+            //  Return account without access token (Incase of Super Admin)
+            return $this->getUserWithoutAccessToken();
+
+        }
+    }
+
+    /**
+     *  Accept the terms and conditions. This will grant
+     *  the user access to consume routes that require
+     *  the T&C's to be accepted first.
+     */
+    public function acceptTermsAndConditions()
+    {
+        //  If the user has not accepted the terms and conditions
+        if( $this->model->accepted_terms_and_conditions == false ) {
+
+            //  Accept the terms and conditions
+            $accepted = $this->model->update([
+                'accepted_terms_and_conditions' => true
+            ]);
+
+            //  If accepted successfully
+            if( $accepted ){
+
+                return ['message' => 'Terms and conditions accepted successfully'];
+
+            }else{
+
+                //  Throw an Exception - Failed to accept
+                throw new AcceptingTermsAndConditionsFailedException('Failed to accept the terms and conditions');
+            }
+
+        }else{
+
+            //  Throw an Exception - Already accepted
+            throw new AcceptingTermsAndConditionsFailedException('The terms and conditions have already been accepted');
+
+        }
+    }
+
+    /**
+     *  Return the current user - This could be the
+     *  current authenticated user or the user
+     *  being accessed by the Super Admin
+     */
+    public function showProfile()
+    {
+        //  Return the current user
+        return $this->transform();
+    }
+
+    /**
+     *  Return the current user tokens - This could be the
+     *  current authenticated user access tokens or the
+     *  access tokens of the user being accessed by
+     *  the Super Admin
+     */
+    public function showProfileTokens()
+    {
+        //  Get the user tokens
+        $tokens = $this->model->tokens;
+
+        //  Get the user tokens
+        $tranformedTokens = collect($tokens)->map(fn($token) => $token->only(['name', 'last_used_at']))->toArray();
+
+        return [
+            'tokens' => $tranformedTokens
+        ];
+    }
+
+    /**
+     *  Update existing user account - This could be the
+     *  current authenticated user or the user
+     *  being accessed by the Super Admin
+     */
+    public function updateProfile(Request $request)
+    {
+        //  If we provided a new password
+        if( $request->filled('password') ){
+
+            //  Encrypt the password (If provided)
+            $request->merge(['password' => $this->getEncryptedRequestPassword()]);
+
+        }
+
+        //  The selected fields are allowed to update an account
+        $data = $request->only(['first_name', 'last_name', 'mobile_number', 'password']);
+
+        //  Update existing account
+        parent::update($data);
+
+        //  Revoke the mobile verification code
+        $this->revokeMobileVerificationCode();
+
+        //  Return the Repository Class instance.
+        return $this;
+    }
+
+    /**
+     *  Generate the delete confirmation code to delete
+     *  the authenticated users profile - This could be
+     *  the current authenticated user or the user
+     *  being accessed by the Super Admin
+     */
+    public function confirmDeleteProfile()
+    {
+        return parent::generateDeleteConfirmationCode();
+    }
+
+    /**
+     *  Delete the authenticated users profile - This could be
+     *  the current authenticated user or the user being
+     *  accessed by the Super Admin
+     */
+    public function deleteProfile()
+    {
+        //  Delete the profile
+        parent::delete();
+
+        //  Logout the user
+        return $this->logout();
     }
 
     /**
      *  Check if user account exists
      */
-    public function accountExists(Request $request)
+    public function accountExists()
     {
         $this->model = $this->getUserFromMobileNumber();
 
         //  Return account and access token
         return [
-            'user' => $this->model ? $this->transform(['viewAsGuest' => true]) : null,
+            'user' => $this->model ? $this->transform(['checkingAccountExistence' => true]) : null,
             'account_exists' => $this->model ? true : false
         ];
     }
@@ -189,7 +285,7 @@ class AuthRepository extends BaseRepository
      *  Reset the account password and return the
      *  user account and access token
      */
-    public function resetPassword(Request $request)
+    public function resetPassword()
     {
         //  Set matching user
         $this->model = $this->getUserFromMobileNumberOrFail();
@@ -219,7 +315,7 @@ class AuthRepository extends BaseRepository
         $purpose = $request->input('purpose');
 
         //  Generate random 6 digit number
-        $code = rand(100000, 999999);
+        $code = $this->generateRandomSixDigitCode();
 
         //  Update existing or create a new verification code
         $successful = MobileVerification::updateOrCreate(
@@ -274,24 +370,35 @@ class AuthRepository extends BaseRepository
     /**
      *  Logout authenticated user
      */
-    public function logout(Request $request)
+    public function logout()
     {
-        //  If we want to logout from all devices
-        if( $request->filled('everyone') && in_array($request->input('everyone'), [true, 'true', 1, '1'])) {
+        //  Check if the Super Admin is trying to logout someone else
+        $superAdminIsLoggingOutSomeoneElse = (auth()->user()->isSuperAdmin() && auth()->user()->id != $this->model->id);
+
+        //  If we want to logout from all devices (or the Super Admin is logging out someone else)
+        if( $superAdminIsLoggingOutSomeoneElse || (request()->filled('everyone') && in_array(request()->input('everyone'), [true, 'true', 1, '1']))) {
+
+            //  If the user that we are trying to logout is also a Super Admin
+            if( $this->model->isSuperAdmin() ){
+
+                //  Restrict this logout action
+                throw new LogoutOfSuperAdminRestrictedException;
+
+            }
 
             // Revoke all tokens (Including current token)
-            $request->user()->tokens()->delete();
+            $this->model->tokens()->delete();
 
         //  If we want to logout other devices except the current
-        }elseif( $request->filled('others') && in_array($request->input('others'), [true, 'true', 1, '1'])) {
+        }elseif( request()->filled('others') && in_array(request()->input('others'), [true, 'true', 1, '1'])) {
 
             // Revoke all tokens (Except the current token)
-            $request->user()->tokens()->where('id', '!=', $request->user()->currentAccessToken()->id)->delete();
+            $this->model->tokens()->where('id', '!=', $this->model->currentAccessToken()->id)->delete();
 
         }else{
 
             //  Revoke the token that was used to authenticate the current request
-            $request->user()->currentAccessToken()->delete();
+            $this->model->currentAccessToken()->delete();
 
         }
 
@@ -368,9 +475,17 @@ class AuthRepository extends BaseRepository
     private function getUserAndAccessToken()
     {
         return [
-            'user' => $this->transform(),
+            'user' => parent::transform(),
             'access_token' => $this->createAccessToken()
         ];
+    }
+
+    /**
+     *  Get the user without access token response
+     */
+    private function getUserWithoutAccessToken()
+    {
+        return parent::transform();
     }
 
     /**

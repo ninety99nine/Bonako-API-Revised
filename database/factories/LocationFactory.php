@@ -22,7 +22,9 @@ class LocationFactory extends Factory
     public function definition()
     {
         return [
-            'name' => $this->faker->word
+            'name' => $this->faker->word,
+            'call_to_action' => $this->faker->randomElement(['Buy', 'Order', 'Pre-order']),
+            'user_id' => 1,
         ];
     }
 }

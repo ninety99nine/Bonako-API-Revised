@@ -2,9 +2,9 @@
 
 namespace App\Http\Resources;
 
-use Illuminate\Http\Resources\Json\ResourceCollection;
+use App\Http\Resources\BaseResources;
 
-class StoreResources extends ResourceCollection
+class StoreResources extends BaseResources
 {
     /**
      * The resource that this resource collects.
@@ -12,15 +12,4 @@ class StoreResources extends ResourceCollection
      * @var string
      */
     public $collects = 'App\Http\Resources\StoreResource';
-
-    /**
-     * Transform the resource into an array.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return array|\Illuminate\Contracts\Support\Arrayable|\JsonSerializable
-     */
-    public function toArray($request)
-    {
-        return $this->collection;
-    }
 }

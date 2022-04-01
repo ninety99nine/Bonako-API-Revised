@@ -18,7 +18,7 @@ class CreateMobileVerificationsTable extends Migration
         Schema::create('mobile_verifications', function (Blueprint $table) {
             $table->id();
             $table->char('code', 6)->nullable();
-            $table->string('mobile_number', 11)->index();
+            $table->string('mobile_number', 11);
             $table->enum('purpose', MobileVerification::PURPOSE)->default(Arr::first(MobileVerification::PURPOSE));
             $table->timestamps();
 

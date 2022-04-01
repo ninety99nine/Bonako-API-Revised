@@ -2,15 +2,19 @@
 
 namespace App\Models;
 
+use App\Models\Base\BaseModel;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Model;
 
-class MobileVerification extends Model
+class MobileVerification extends BaseModel
 {
     use HasFactory;
 
     const PURPOSE = [
         'Verify Account', 'Verify Delivery', 'Reset Password'
+    ];
+
+    protected $casts = [
+        'code' => 'encrypted'
     ];
 
     protected $fillable = [

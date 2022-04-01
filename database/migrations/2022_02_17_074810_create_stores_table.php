@@ -17,8 +17,8 @@ class CreateStoresTable extends Migration
     {
         Schema::create('stores', function (Blueprint $table) {
             $table->id();
-            $table->string('name', 20);
-            $table->string('call_to_action', 20);
+            $table->string('name', 20)->index();
+            $table->char('currency', 3)->default('BWP');
             $table->enum('registered_with_bank', Store::CLOSED_ANSWERS)->default(Arr::last(Store::CLOSED_ANSWERS));
             $table->enum('banking_with', Store::BANKING_WITH)->default(Arr::last(Store::BANKING_WITH));
             $table->enum('registered_with_cipa', Store::CLOSED_ANSWERS)->default(Arr::last(Store::CLOSED_ANSWERS));
@@ -26,6 +26,8 @@ class CreateStoresTable extends Migration
             $table->string('company_uin', 13)->nullable();
             $table->unsignedSmallInteger('number_of_employees')->default(0);
             $table->string('accepted_golden_rules');
+            $table->boolean('online')->default(true);
+            $table->string('offline_message', 200)->default(Store::DEFAULT_OFFLINE_MESSAGE);
             $table->foreignId('user_id')->default(0);
             $table->timestamps();
         });

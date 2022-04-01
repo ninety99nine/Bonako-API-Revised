@@ -10,6 +10,7 @@ use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Symfony\Component\HttpKernel\Exception\AccessDeniedHttpException;
 use Symfony\Component\HttpKernel\Exception\MethodNotAllowedHttpException;
+use Symfony\Component\Routing\Exception\RouteNotFoundException;
 
 class Handler extends ExceptionHandler
 {
@@ -48,8 +49,13 @@ class Handler extends ExceptionHandler
         });
 
         //  Route not found Error
-        $this->renderable(function (NotFoundHttpException $e, $request) {
+        $this->renderable(function (RouteNotFoundException $e, $request) {
             return response(['message' => 'Route not found Make sure you are using the correct url'], 404);
+        });
+
+        //  Resource not found Error
+        $this->renderable(function (NotFoundHttpException $e, $request) {
+            return response(['message' => 'This resource does not exist'], 404);
         });
 
         //  Method not allowed Error
@@ -79,6 +85,8 @@ class Handler extends ExceptionHandler
             return response([
                 'message' => 'Something went wrong',
                 'error' => $e->getMessage(),
+                'file' => $e->getFile(),
+                'line' => $e->getLine(),
             ], 500);
 
         });

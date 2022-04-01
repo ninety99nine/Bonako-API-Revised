@@ -70,6 +70,9 @@ class Kernel extends HttpKernel
         'request.via.ussd' => \App\Http\Middleware\CheckIfRequestFromUssdServer::class,
         'require.api.headers' => \App\Http\Middleware\RequireApiHeaders::class,
         'accepted.terms.and.conditions' => \App\Http\Middleware\AcceptedTermsAndConditions::class,
+        'location.permission' => \App\Http\Middleware\CheckIfHasLocationPermissions::class,
+        'assigned.to.store' => \App\Http\Middleware\CheckIfAssignedToStore::class,
+        'superadmin' => \App\Http\Middleware\CheckIfSuperAdmin::class,
     ];
 
     /**

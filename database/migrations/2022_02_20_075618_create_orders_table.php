@@ -15,7 +15,7 @@ class CreateOrdersTable extends Migration
     {
         Schema::create('orders', function (Blueprint $table) {
             $table->id();
-            $table->string('number');
+            $table->string('number')->index();
             $table->decimal('amount', 10, 2);
             $table->unsignedBigInteger('location_id');
             $table->timestamps();
