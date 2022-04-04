@@ -73,6 +73,16 @@ class User extends BaseAuthenticatable /* Authenticatable */
         return $this->morphOne(Cart::class, 'owner')->latestOfMany();
     }
 
+    /**
+     *  Get the Orders that have been placed by this User
+     *
+     *  @return Illuminate\Database\Eloquent\Concerns\HasRelationships::hasMany
+     */
+    public function orders()
+    {
+        return $this->hasMany(Order::class, 'customer_id');
+    }
+
     /****************************
      *  ACCESSORS               *
      ***************************/

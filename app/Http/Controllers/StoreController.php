@@ -50,7 +50,7 @@ class StoreController extends BaseController
 
     public function showLocations(Store $store)
     {
-        return response($this->repository->setModel($store)->showLocations(), 200);
+        return response($this->repository->setModel($store)->showLocations()->transform(), 200);
     }
 
     public function createLocation(CreateLocationRequest $request, Store $store)

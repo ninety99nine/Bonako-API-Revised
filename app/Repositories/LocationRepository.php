@@ -179,15 +179,28 @@ class LocationRepository extends BaseRepository
     }
 
     /**
+     *  Calculate the user's location shopping cart.
+     *  This means that we can workout the totals
+     *  without creating a cart.
+     */
+    public function calculateShoppingCart()
+    {
+        /**
+         *  Inspect and return the current shopping cart instance.
+         *  This cart instance is simply a mockup of the current
+         *  user's cart before it is saved to the database
+         */
+        $inspectedCart = resolve(ShoppingCartService::class)->startInspection();
+
+        //  Lets return the shopping cart as part of the cart respositoty instance
+        return $this->cartRepository()->setModel($inspectedCart);
+    }
+
+    /**
      *  Update the user's location shopping cart
      */
     public function updateShoppingCart(Cart $shoppingCart)
     {
-        /**
-         * @var \App\Models\User $user
-         */
-        $user = auth()->user();
-
         /**
          *  Inspect and return the current shopping cart instance.
          *  This cart instance is simply a mockup of the current
@@ -202,13 +215,29 @@ class LocationRepository extends BaseRepository
              *  This should update the pricing totals correctly as well as
              *  other important details such as item quantities e.t.c
              */
-            $inspectedCart
+            $inspectedCart->toArray()
 
         /**
-         *  Attempt to create and associate the product lines and coupon lines to this
+         *  Attempt to update the associated product lines and coupon lines to this
          *  recovered cart if they exist. In either case return the cart instance.
          */
         )->updateProductAndCouponLines();
+    }
+
+    /**
+     *  Empty the user's location shopping cart
+     */
+    public function emptyShoppingCart(Cart $shoppingCart)
+    {
+        return $this->cartRepository()->setModel($shoppingCart)->empty();
+    }
+
+    /**
+     *  Empty the user's location shopping cart
+     */
+    public function convertShoppingCart(Cart $shoppingCart)
+    {
+        return $this->cartRepository()->setModel($shoppingCart)->convert();
     }
 
     /**
@@ -218,7 +247,7 @@ class LocationRepository extends BaseRepository
     {
         $products = $this->model->products()->isNotVariation();
 
-        return $this->productRepository()->setModel($products)->get()->transform();
+        return $this->productRepository()->setModel($products)->get();
     }
 
     /**
@@ -259,7 +288,7 @@ class LocationRepository extends BaseRepository
 
         }
 
-        return resolve(UserRepository::class)->setModel($users)->get()->transform();
+        return resolve(UserRepository::class)->setModel($users)->get();
     }
 
     /**

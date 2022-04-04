@@ -99,10 +99,12 @@ Route::controller(LocationController::class)
     Route::withoutMiddleware('accepted.terms.and.conditions')->prefix('carts')->group(function () {
 
         Route::post('/', 'createShoppingCart')->name('.carts.create')->whereNumber('location');
-        Route::put('/{cart}', 'updateShoppingCart')->name('.cart.update')->whereNumber('location');
+        Route::post('/calculate', 'calculateShoppingCart')->name('.carts.calculate')->whereNumber('location');
 
-        //Route::post('/', 'resetShoppingCart')->name('.reset')->whereNumber('location');
-        //Route::post('/', 'refreshShoppingCart')->name('.refresh')->whereNumber('location');
+        Route::put('/{cart}', 'updateShoppingCart')->name('.cart.update')->whereNumber('location');
+        Route::post('/{cart}/empty', 'emptyShoppingCart')->name('.cart.empty')->whereNumber('location');
+        Route::post('/{cart}/convert', 'convertShoppingCart')->name('.cart.convert')->whereNumber('location');
+
     });
 
 });

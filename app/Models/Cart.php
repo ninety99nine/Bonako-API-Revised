@@ -5,12 +5,13 @@ namespace App\Models;
 use App\Casts\Money;
 use App\Casts\Currency;
 use App\Models\Base\BaseModel;
+use App\Traits\Base\BaseTrait;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Cart extends BaseModel
 {
-    use HasFactory;
+    use HasFactory, BaseTrait;
 
     protected $casts = [
         'detected_changes' => 'array',
@@ -44,12 +45,12 @@ class Cart extends BaseModel
         /*  Delivery  */
         'allow_free_delivery', 'delivery_fee', 'delivery_destination',
 
-        /*  Products  */
+        /*  Product Line Totals  */
         'total_products', 'total_product_quantities',
         'total_cancelled_products', 'total_cancelled_product_quantities',
         'total_uncancelled_products', 'total_uncancelled_product_quantities',
 
-        /*  Coupons  */
+        /*  Coupon Line Totals  */
         'total_coupons',
 
         /*  Changes  */

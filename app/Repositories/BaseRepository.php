@@ -429,7 +429,7 @@ abstract class BaseRepository
             $data = collect($data)->only($fillables)->except($this->createIgnoreFields)->all();
 
             //  If we have data
-            if( !empty($data) ){
+            if( !empty($data) ) {
 
                 //  Set repository model after creating and retrieving a fresh model instance
                 $this->model = $this->model->create($data)->fresh();
@@ -472,34 +472,25 @@ abstract class BaseRepository
 
             $fillables = isset($fillables) ? $fillables : $this->model->getFillable();
 
-            //  Get the permitted fields for creating a model
-            $data = collect($data)->only($fillables)->except($this->createIgnoreFields)->all();
+            //  Get the permitted fields for updating a model
+            $data = collect($data)->only($fillables)->except($this->updateIgnoreFields)->all();
 
-            //  If we have data
-            if( !empty($data) ){
+            //  Update repository model
+            $updated = $this->model->update($data);
 
-                //  Update repository model
-                $updated = $this->model->update($data);
+            //  If we updated this repository model
+            if( $updated ){
 
-                //  If we updated this repository model
-                if( $updated ){
-
-                    //  Set repository model
-                    $this->model = $this->model->fresh();
-
-                }
-
-                /**
-                 *  Return the Repository Class instance. This is so that we can chain other
-                 *  methods e.g to Transform the Model for external consumption.
-                 */
-                return $this;
-
-            }else{
-
-                throw new Exception('Could not update '.$this->getModelNameInLowercase().' because no data was provided.');
+                //  Set repository model
+                $this->model = $this->model->fresh();
 
             }
+
+            /**
+             *  Return the Repository Class instance. This is so that we can chain other
+             *  methods e.g to Transform the Model for external consumption.
+             */
+            return $this;
 
         } catch (RepositoryModelNotFoundException $e) {
 

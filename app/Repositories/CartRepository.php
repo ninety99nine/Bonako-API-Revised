@@ -2,7 +2,9 @@
 
 namespace App\Repositories;
 
+use App\Exceptions\CartAlreadyConvertedException;
 use App\Repositories\BaseRepository;
+use App\Repositories\OrderRepository;
 use App\Services\ShoppingCart\ShoppingCartService;
 
 class CartRepository extends BaseRepository
@@ -17,6 +19,16 @@ class CartRepository extends BaseRepository
     public function shoppingCartService()
     {
         return resolve(ShoppingCartService::class);
+    }
+
+    /**
+     *  Return the OrderRepository instance
+     *
+     *  @return OrderRepository
+     */
+    public function orderRepository()
+    {
+        return resolve(OrderRepository::class);
     }
 
     /**
@@ -55,11 +67,11 @@ class CartRepository extends BaseRepository
     /**
      *  Create the cart coupon lines for the cart
      */
-    public function createCouponLines()
+    public function createCouponLines($data = [])
     {
         //  Then create the coupon lines
         $this->model->couponLines()->insert(
-            $this->shoppingCartService()->prepareSpecifiedCouponLinesForDB($this->model->id)
+            count($data) ? $data : $this->shoppingCartService()->prepareSpecifiedCouponLinesForDB($this->model->id)
         );
 
         return $this;
@@ -81,7 +93,7 @@ class CartRepository extends BaseRepository
         //  Get the existing product lines (Saved on the database)
         $existingProductLines = $this->shoppingCartService()->existingProductLines;
 
-        $removedMessage = 'Removed from the shopping cart by ' . auth()->user()->name;
+        $cancellationReason = 'Removed from the shopping cart';
 
         //  If we have specified product lines
         if( $this->shoppingCartService()->totalSpecifiedProductLines ) {
@@ -110,7 +122,7 @@ class CartRepository extends BaseRepository
             if( $existingSpecifiedProductLines->count() ) {
 
                 //  Foreach existing product line
-                collect($existingProductLines)->each(function($existingProductLine) use ($removedMessage) {
+                collect($existingProductLines)->each(function($existingProductLine) use ($cancellationReason) {
 
                     //  Get the existing specified product line product id
                     $productId = $existingProductLine->product_id;
@@ -130,13 +142,13 @@ class CartRepository extends BaseRepository
                          *
                          *  $existingProductLine->delete();
                          *
-                         *  However this approach does not give anyone an idea of the existence of
+                         *  However this approach does not give anyone any idea of the existence of
                          *  this product line. So instead we could just cancel it with a message
                          *  that the item was removed from the cart
                          */
 
                         //  Delete the existing product line from the database
-                        $existingProductLine->clearDetectedChanges()->clearCancellationReasons()->cancelItemLine($removedMessage)->save();
+                        $existingProductLine->clearDetectedChanges()->clearCancellationReasons()->cancelItemLine($cancellationReason)->save();
 
                     }else{
 
@@ -171,12 +183,12 @@ class CartRepository extends BaseRepository
              *
              *  $this->model->productLines()->delete();
              *
-             *  However this approach does not give anyone an idea of the existence of
+             *  However this approach does not give anyone any idea of the existence of
              *  these product lines. So instead we could just cancel it with a message
              *  that the item was removed from the cart
              */
-            collect($existingProductLines)->each(function($existingProductLine) use ($removedMessage) {
-                $existingProductLine->clearDetectedChanges()->clearCancellationReasons()->cancelItemLine($removedMessage)->save();
+            collect($existingProductLines)->each(function($existingProductLine) use ($cancellationReason) {
+                $existingProductLine->clearDetectedChanges()->clearCancellationReasons()->cancelItemLine($cancellationReason)->save();
             });
 
         }
@@ -191,6 +203,8 @@ class CartRepository extends BaseRepository
     {
         //  Get the existing coupon lines (Saved on the database)
         $existingCouponLines = $this->shoppingCartService()->existingCouponLines;
+
+        $cancellationReason = 'Removed from the shopping cart';
 
         //  If we have specified coupon lines
         if( $this->shoppingCartService()->totalSpecifiedCouponLines ) {
@@ -219,7 +233,7 @@ class CartRepository extends BaseRepository
             if( $existingSpecifiedCouponLines->count() ) {
 
                 //  Foreach existing coupon line
-                collect($existingCouponLines)->each(function($existingCouponLine) {
+                collect($existingCouponLines)->each(function($existingCouponLine) use ($cancellationReason) {
 
                     //  Get the existing specified coupon line coupon id
                     $couponId = $existingCouponLine->coupon_id;
@@ -234,8 +248,18 @@ class CartRepository extends BaseRepository
                      */
                     if( $data === null ) {
 
+                        /**
+                         *  We could delete this coupon line saved in the database as follows:
+                         *
+                         *  $existingCouponLine->delete();
+                         *
+                         *  However this approach does not give anyone any idea of the existence of
+                         *  this coupon line. So instead we could just cancel it with a message
+                         *  that the item was removed from the cart
+                         */
+
                         //  Delete the existing coupon line from the database
-                        $existingCouponLine->delete();
+                        $existingCouponLine->clearDetectedChanges()->clearCancellationReasons()->cancelItemLine($cancellationReason)->save();
 
                     }else{
 
@@ -265,11 +289,79 @@ class CartRepository extends BaseRepository
         //  Otherwise this means that the coupon lines have been removed
         }else{
 
-            //  We must therefore delete the coupon lines saved in the database for this cart
-            $this->model->couponLines()->delete();
+            /**
+             *  We could delete these coupon lines saved in the database as follows:
+             *
+             *  $this->model->couponLines()->delete();
+             *
+             *  However this approach does not give anyone any idea of the existence of
+             *  these coupon lines. So instead we could just cancel it with a message
+             *  that the item was removed from the cart
+             */
+            collect($existingCouponLines)->each(function($existingCouponLine) use ($cancellationReason) {
+                $existingCouponLine->clearDetectedChanges()->clearCancellationReasons()->cancelItemLine($cancellationReason)->save();
+            });
 
         }
 
         return $this;
+    }
+
+    /**
+     *  Empty the cart
+     */
+    public function empty()
+    {
+        //  Delete the cart product lines (permanently)
+        $this->model->productLines()->delete();
+
+        //  Delete the cart coupon lines (permanently)
+        $this->model->couponLines()->delete();
+
+        //  Empty the current shopping cart
+        $emptyshoppingCart = $this->shoppingCartService()->emptyCart()->startInspection();
+
+        //  Update the saved shopping cart to the current empty shopping cart
+        $this->update($emptyshoppingCart);
+
+        //  Return the cart repository instance
+        return $this;
+    }
+
+    /**
+     *  Convert the cart to an order
+     */
+    public function convert()
+    {
+        //  Check if the cart has been converted before
+        if( $this->checkIfConverted() ) throw new CartAlreadyConvertedException;
+
+        //  Get the Cart Model instance
+        $cart = $this->model;
+
+        //  Create a new order
+        $orderRepository = $this->orderRepository()->create([
+            'customer_id' => $cart->owner_id,
+            'location_id' => $cart->location_id
+        ]);
+
+        //  If we have a new order
+        if( $order = $orderRepository->model ) {
+
+            //  Associate the cart with the new order
+            $this->update([
+                'owner_id' => $order->id,
+                'owner_type' => $order->getResourceType()
+            ]);
+
+        }
+
+        //  Return the cart repository instance
+        return $this;
+    }
+
+    public function checkIfConverted()
+    {
+        return $this->model->getResourceType() == 'cart';
     }
 }

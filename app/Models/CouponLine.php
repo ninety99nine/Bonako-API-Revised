@@ -2,15 +2,16 @@
 
 namespace App\Models;
 
-use App\Casts\Currency;
 use App\Casts\Money;
+use App\Casts\Currency;
+use App\Traits\ItemLineTrait;
 use App\Models\Base\BaseModel;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Couponline extends BaseModel
 {
-    use HasFactory;
+    use HasFactory, ItemLineTrait;
 
     protected $table = 'coupon_lines';
 

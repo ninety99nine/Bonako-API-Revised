@@ -44,11 +44,11 @@ class ProductController extends BaseController
 
     public function showVariations(Product $product)
     {
-        return response($this->repository->setModel($product)->showVariations(), 200);
+        return response($this->repository->setModel($product)->showVariations()->transform(), 200);
     }
 
     public function createVariations(CreateVariationsRequest $request, Product $product)
     {
-        return response($this->repository->setModel($product)->createVariations($request), 201);
+        return response($this->repository->setModel($product)->createVariations($request)->transform(), 201);
     }
 }

@@ -20,7 +20,7 @@ class ProductRepository extends BaseRepository
     {
         $variations = $this->model->variations();
 
-        return $this->setModel($variations)->get()->transform();
+        return $this->setModel($variations)->get();
     }
 
     /**

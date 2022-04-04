@@ -74,7 +74,7 @@ class StoreRepository extends BaseRepository
      */
     public function showLocations()
     {
-        return resolve(LocationRepository::class)->setModel($this->model->locations())->get()->transform();
+        return resolve(LocationRepository::class)->setModel($this->model->locations())->get();
     }
 
     /**

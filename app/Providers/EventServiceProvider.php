@@ -5,10 +5,12 @@ namespace App\Providers;
 use App\Models\Cart;
 use App\Models\User;
 use App\Models\Store;
-use App\Models\Location;
+use App\Models\Order;
 use App\Models\Product;
+use App\Models\Location;
 use App\Observers\CartObserver;
 use App\Observers\UserObserver;
+use App\Observers\OrderObserver;
 use App\Observers\StoreObserver;
 use App\Observers\ProductObserver;
 use App\Observers\LocationObserver;
@@ -39,6 +41,7 @@ class EventServiceProvider extends ServiceProvider
     {
         User::observe(UserObserver::class);
         Cart::observe(CartObserver::class);
+        Order::observe(OrderObserver::class);
         Store::observe(StoreObserver::class);
         Product::observe(ProductObserver::class);
         Location::observe(LocationObserver::class);

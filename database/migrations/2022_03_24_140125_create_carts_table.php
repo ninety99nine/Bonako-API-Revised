@@ -32,7 +32,7 @@ class CreateCartsTable extends Migration
             $table->decimal('delivery_fee', 9, 2)->default(0);
             $table->json('delivery_destination')->nullable();
 
-            /*  Products  */
+            /*  Product Line Totals  */
             $table->unsignedSmallInteger('total_products')->default(0);
             $table->unsignedSmallInteger('total_product_quantities')->default(0);
             $table->unsignedSmallInteger('total_cancelled_products')->default(0);
@@ -40,7 +40,7 @@ class CreateCartsTable extends Migration
             $table->unsignedSmallInteger('total_uncancelled_products')->default(0);
             $table->unsignedSmallInteger('total_uncancelled_product_quantities')->default(0);
 
-            /*  Coupons  */
+            /*  Coupon Line Totals  */
             $table->unsignedSmallInteger('total_coupons')->default(0);
 
             /*  Changes  */
